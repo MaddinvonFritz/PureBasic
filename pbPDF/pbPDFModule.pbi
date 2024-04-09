@@ -3441,7 +3441,14 @@ Module PDF
         newLines + 1
         
         If newLines = 2 And Border <> 0 : bFlag = bFlag2 : EndIf
-        
+
+        If maxLine > 0 And newLines > maxLine
+          
+          PDF()\MultiCellNewLines = newLines - 1
+          
+          ProcedureReturn Right(Text, Len(Text) - i)
+        EndIf
+
         Continue
         ;}
       EndIf
