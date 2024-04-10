@@ -3446,7 +3446,7 @@ Module PDF
           
           PDF()\MultiCellNewLines = newLines - 1
           
-          ProcedureReturn Right(Text, Len(Text) - i)
+          ProcedureReturn Right(Text, Len(Text) - (i-1))
         EndIf
 
         Continue
@@ -3533,7 +3533,7 @@ Module PDF
           
           PDF()\MultiCellNewLines = newLines - 1
           
-          ProcedureReturn Right(Text, Len(Text) - i)
+          ProcedureReturn Right(Text, Len(Text) - (i-1))
         EndIf
         ;}
       Else
