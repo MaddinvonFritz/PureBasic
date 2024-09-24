@@ -1810,7 +1810,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure.s Encrypt_(objNum.i, genNum.i, String.s, Flag.i=#False)
+  Procedure.s encrypt_(objNum.i, genNum.i, String.s, Flag.i=#False)
     ; PDF Reference Version 1.6 - Chapter 3.5.1
     Define EncryptKey.s, Hex$, RC4$, Result$
     
@@ -3442,6 +3442,14 @@ Module PDF
         
         If newLines = 2 And Border <> 0 : bFlag = bFlag2 : EndIf
         
+        If maxLine > 0 And newLines > maxLine
+          
+          PDF()\MultiCellNewLines = newLines - 1
+          
+          ProcedureReturn Right(Text, Len(Text) - (i-1))
+
+        EndIf
+        
         Continue
         ;}
       EndIf
@@ -3526,7 +3534,7 @@ Module PDF
           
           PDF()\MultiCellNewLines = newLines - 1
           
-          ProcedureReturn Right(Text, Len(Text) - i)
+          ProcedureReturn Right(Text, Len(Text) - (i-1))
         EndIf
         ;}
       Else
@@ -3554,7 +3562,7 @@ Module PDF
     ProcedureReturn ""
   EndProcedure
 
-  Procedure   Write_(Height.f, Text.s, Link.i=#NoLink, Label.s="")
+  Procedure   write_(Height.f, Text.s, Link.i=#NoLink, Label.s="")
     Define.i i, j, txtLen, Seperator, nl
     Define.f Width, maxWidth, StrgWidth
     Define.s Char$
@@ -4114,9 +4122,9 @@ Module PDF
                   
                   If PDF()\Encryption
                     If CountString(PDF()\Object()\Dictionary()\String, "|") = 1
-                      RC4 = Encrypt_(intObj_(objPDF), 0, PDF()\Object()\Dictionary()\String, #True)
+                      RC4 = encrypt_(intObj_(objPDF), 0, PDF()\Object()\Dictionary()\String, #True)
                     Else
-                      RC4 = Encrypt_(intObj_(objPDF), 0, PDF()\Object()\Dictionary()\String)
+                      RC4 = encrypt_(intObj_(objPDF), 0, PDF()\Object()\Dictionary()\String)
                     EndIf
                     HexStrg2Memory(RC4, PDF()\Object()\Dictionary()\sStrg, PDF()\Object()\Dictionary()\eStrg, @String)
                     If String\Memory
@@ -5222,12 +5230,12 @@ Module PDF
         
         For i = 20 To Height -20 Step 20
           SetXY_(1, i - 3)
-          Write_(5, Str(i))
+          write_(5, Str(i))
         Next
         
         For i = 20 To rMargin - 20 Step 20
           SetXY_(i - 1, 1)
-          Write_(3, Str(i))   
+          write_(3, Str(i))   
         Next
         SetXY_(X, Y)
         
@@ -6372,7 +6380,7 @@ Module PDF
     	SetY_(subY - SubOffSet)
     	SetX_(subX)
     	
-      Write_(Height, Text, Link, Label)
+      write_(Height, Text, Link, Label)
       
     	subX = PDF()\Page\X
     	subY = PDF()\Page\Y
@@ -6428,7 +6436,7 @@ Module PDF
     
     If FindMapElement(PDF(), Str(ID))
       
-      Write_(Height, Text, Link, Label)
+      write_(Height, Text, Link, Label)
       
     EndIf
     
@@ -7122,10 +7130,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 6.04 LTS (Windows - x64)
-; CursorPosition = 575
-; Folding = YCAAAoACwAQAAASAACAAAAAQ1AIDAcgfDAABAQCEAAAEBBABIAAAFQABAAAIOjIAyFAh3AA9
-; Markers = 591,1026,2203,2382,2482,3328,3837,3907
+; IDE Options = PureBasic 6.10 LTS (Linux - x64)
+; CursorPosition = 3536
+; FirstLine = 747
+; Folding = YCAAAoACwAQAAASAACAAAAAQ1AIDAcgfDAARFQCEAAAEBAABIAAAFQABAAAIOjIAyFAh3AA9
+; Markers = 591,1026,2203,2382,2482,3328,3845,3915
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
