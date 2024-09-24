@@ -4,15 +4,17 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS]
 ;/
-;/ © 2019 Thorsten Hoeppner (09/2019) 
+;/ © 2022 Thorsten Hoeppner (09/2019) 
 ;/
 
-; Last Update: 
-
+; Last Update: 09.07.2022
+;
+; Added: #Enable_Encryption
+;
 
 ;{ ===== MIT License =====
 ;
-; Copyright (c) 2019 Thorsten Hoeppner
+; Copyright (c) 2022 Thorsten Hoeppner
 ; Copyright (c) 2019 Werner Albus (encryption)
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -60,7 +62,8 @@ DeclareModule LSB
   
   #Version  = 19112300
   
-  #Enable_KeyCard = #True
+  #Enable_KeyCard    = #True
+  #Enable_Encryption = #True
   
   EnumerationBinary ;{ Text Flags
 	  #Center = #PB_Text_Center
@@ -185,193 +188,197 @@ Module LSB
 	;-   Module - Internal Procedures
 	;- ==========================================================================
 	
-  Procedure.s KeyStretching_(Key.s, Loops.i, ProgressBar.i=#PB_Default)
-    ; Author Werner Albus - www.nachtoptik.de
-    Define.i i, Timer
-    Define.s Salt$
-
-	  Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
-    
-    For i=1 To Loops
-      Key = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
-      Key = Fingerprint(@Key, StringByteLength(Key), #PB_Cipher_SHA3, 512)
-    Next
-    
-    Key = ReverseString(Key) + Salt$ + Key + ReverseString(Key)
-    Key = Fingerprint(@Key, StringByteLength(Key), #PB_Cipher_SHA3, 512) ; Finalize
-    
-    ProcedureReturn Key
-  EndProcedure
-	
-  Procedure.q GetCounter_()
-	  Define.q Counter
-	  
-	  If OpenCryptRandom()
-        CryptRandomData(@Counter, 8)
-    Else
-      RandomData(@Counter, 8)
-    EndIf
-    
-    ProcedureReturn Counter
-  EndProcedure
+	CompilerIf #Enable_Encryption
+  	  
+    Procedure.s KeyStretching_(Key.s, Loops.i, ProgressBar.i=#PB_Default)
+      ; Author Werner Albus - www.nachtoptik.de
+      Define.i i, Timer
+      Define.s Salt$
   
-	Procedure.i SmartCoder(Mode.i, *Input.word, *Output.word, Size.q, Key.s, CounterKey.q=0, CounterAES.q=0)
-	  ; Author: Werner Albus - www.nachtoptik.de (No warranty whatsoever - Use at your own risk)
-    ; CounterKey: If you cipher a file blockwise, always set the current block number with this counter (consecutive numbering).
-    ; CounterAES: This counter will be automatically used by the coder, but you can change the startpoint.
-	  Define.i i, ii, iii, cStep
-	  Define.q Rounds, Remaining
-	  Define.s Hash$, Salt$
-	  Define   *aRegister.ascii, *wRegister.word, *aBufferIn.ascii, *aBufferOut.ascii, *qBufferIn.quad, *qBufferOut.quad
-	  Static   FixedKey${64}
-	  Static   Dim Register.q(3)
-	  
-	  Salt$ = #Salt$
-	  
-	  Hash$     = Salt$ + Key + Str(CounterKey) + ReverseString(Salt$)
-	  FixedKey$ = Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, 256)	  
-	  
-	  cStep     = SizeOf(character) << 1
-	  Rounds    = Size >> 4
-	  Remaining = Size % 16
-	  
-	  For ii = 0 To 31
-	    PokeA(@Register(0) + ii, Val("$" + PeekS(@FixedKey$ + iii, 2)))
-	    iii + cStep
-	  Next
-	  
-	  Register(1) + CounterAES
-
-	  Select Mode
-	    Case #Binary  ;{ Binary content
-	      
-	      *qBufferIn  = *Input
-	      *qBufferOut = *Output
-	      
-	      If Size < 16 ;{ Size < 16
-	        
-	        *aBufferOut = *qBufferOut
-	        *aBufferIn  = *qBufferIn
-	        *aRegister  = @register(0)
-	        
-	        If Not AESEncoder(@Register(0), @Register(0), 32, @Register(0), 256, 0, #PB_Cipher_ECB)
-	          ProcedureReturn #False
-	        EndIf
-	        
-          For ii=0 To Size - 1
-            *aBufferOut\a = *aBufferIn\a ! *aRegister\a
-            *aBufferIn  + 1
-            *aBufferOut + 1
-            *aRegister  + 1
-          Next
-          
-          ProcedureReturn #True
-          ;}
-        EndIf
-        
-        While i < Rounds ;{ >= 16 Byte
-          
-          If Not AESEncoder(@register(0), @register(0), 32, @register(0), 256, 0, #PB_Cipher_ECB)
-            ProcedureReturn #False
-          EndIf
-          
-          *qBufferOut\q=*qBufferIn\q ! register(0)
-          *qBufferIn  + 8
-          *qBufferOut + 8
-          *qBufferOut\q = *qBufferIn\q ! register(1)
-          *qBufferIn  + 8
-          *qBufferOut + 8
-          
-          i + 1
-        Wend ;}
-        
-        If Remaining
-          
-          *aBufferOut = *qBufferOut
-          *aBufferIn  = *qBufferIn
-          *aRegister  = @Register(0)
-          
-          If Not AESEncoder(@register(0), @register(0), 32, @register(0), 256, 0, #PB_Cipher_ECB)
-            ProcedureReturn #False
-          EndIf
-          
-          For ii=0 To Remaining - 1
-            *aBufferOut\a = *aBufferIn\a ! *aRegister\a
-            *aBufferIn  + 1
-            *aBufferOut + 1
-            *aRegister  + 1
-          Next
-          
-        EndIf
-	      ;}
-	    Case #Ascii   ;{ Ascii content
-	      
-	      *aBufferIn  = *Input
-	      *aBufferOut = *Output
-	      
-	      Repeat
-	        
-	        If Not AESEncoder(@register(0), @register(0), 32, @register(0), 256, 0, #PB_Cipher_ECB)
-	          ProcedureReturn #False
-	        EndIf
-	        
-	        *aRegister = @Register(0)
-	        
-	        For ii=0 To 15
-	          
-            If *aBufferIn\a And *aBufferIn\a ! *aRegister\a
+  	  Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+      
+      For i=1 To Loops
+        Key = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
+        Key = Fingerprint(@Key, StringByteLength(Key), #PB_Cipher_SHA3, 512)
+      Next
+      
+      Key = ReverseString(Key) + Salt$ + Key + ReverseString(Key)
+      Key = Fingerprint(@Key, StringByteLength(Key), #PB_Cipher_SHA3, 512) ; Finalize
+      
+      ProcedureReturn Key
+    EndProcedure
+  	
+    Procedure.q GetCounter_()
+  	  Define.q Counter
+  	  
+  	  If OpenCryptRandom()
+          CryptRandomData(@Counter, 8)
+      Else
+        RandomData(@Counter, 8)
+      EndIf
+      
+      ProcedureReturn Counter
+    EndProcedure
+    
+  	Procedure.i SmartCoder(Mode.i, *Input.word, *Output.word, Size.q, Key.s, CounterKey.q=0, CounterAES.q=0)
+  	  ; Author: Werner Albus - www.nachtoptik.de (No warranty whatsoever - Use at your own risk)
+      ; CounterKey: If you cipher a file blockwise, always set the current block number with this counter (consecutive numbering).
+      ; CounterAES: This counter will be automatically used by the coder, but you can change the startpoint.
+  	  Define.i i, ii, iii, cStep
+  	  Define.q Rounds, Remaining
+  	  Define.s Hash$, Salt$
+  	  Define   *aRegister.ascii, *wRegister.word, *aBufferIn.ascii, *aBufferOut.ascii, *qBufferIn.quad, *qBufferOut.quad
+  	  Static   FixedKey${64}
+  	  Static   Dim Register.q(3)
+  	  
+  	  Salt$ = #Salt$
+  	  
+  	  Hash$     = Salt$ + Key + Str(CounterKey) + ReverseString(Salt$)
+  	  FixedKey$ = Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, 256)	  
+  	  
+  	  cStep     = SizeOf(character) << 1
+  	  Rounds    = Size >> 4
+  	  Remaining = Size % 16
+  	  
+  	  For ii = 0 To 31
+  	    PokeA(@Register(0) + ii, Val("$" + PeekS(@FixedKey$ + iii, 2)))
+  	    iii + cStep
+  	  Next
+  	  
+  	  Register(1) + CounterAES
+  
+  	  Select Mode
+  	    Case #Binary  ;{ Binary content
+  	      
+  	      *qBufferIn  = *Input
+  	      *qBufferOut = *Output
+  	      
+  	      If Size < 16 ;{ Size < 16
+  	        
+  	        *aBufferOut = *qBufferOut
+  	        *aBufferIn  = *qBufferIn
+  	        *aRegister  = @register(0)
+  	        
+  	        If Not AESEncoder(@Register(0), @Register(0), 32, @Register(0), 256, 0, #PB_Cipher_ECB)
+  	          ProcedureReturn #False
+  	        EndIf
+  	        
+            For ii=0 To Size - 1
               *aBufferOut\a = *aBufferIn\a ! *aRegister\a
-            Else
-              *aBufferOut\a = *aBufferIn\a
+              *aBufferIn  + 1
+              *aBufferOut + 1
+              *aRegister  + 1
+            Next
+            
+            ProcedureReturn #True
+            ;}
+          EndIf
+          
+          While i < Rounds ;{ >= 16 Byte
+            
+            If Not AESEncoder(@register(0), @register(0), 32, @register(0), 256, 0, #PB_Cipher_ECB)
+              ProcedureReturn #False
             EndIf
             
-            If i > Size - 2 : Break 2 : EndIf
-            
-            *aBufferIn  + 1
-            *aBufferOut + 1
-            *aRegister  + 1
+            *qBufferOut\q=*qBufferIn\q ! register(0)
+            *qBufferIn  + 8
+            *qBufferOut + 8
+            *qBufferOut\q = *qBufferIn\q ! register(1)
+            *qBufferIn  + 8
+            *qBufferOut + 8
             
             i + 1
-          Next ii
+          Wend ;}
           
-        ForEver
-  	    ;}
-	    Case #Unicode ;{ Unicode content
-	      
-	      Repeat
-	        
-	        If Not AESEncoder(@Register(0), @Register(0), 32, @Register(0), 256, 0, #PB_Cipher_ECB)
-	          ProcedureReturn #False
-	        EndIf
-	        
-	        *wRegister = @Register(0)
-          
-	        For ii=0 To 15 Step 2
-	          
-            If *Input\w And *Input\w ! *wRegister\w
-              *Output\w = *Input\w ! *wRegister\w
-            Else
-              *Output\w = *Input\w
+          If Remaining
+            
+            *aBufferOut = *qBufferOut
+            *aBufferIn  = *qBufferIn
+            *aRegister  = @Register(0)
+            
+            If Not AESEncoder(@register(0), @register(0), 32, @register(0), 256, 0, #PB_Cipher_ECB)
+              ProcedureReturn #False
             EndIf
             
-            If i > Size - 3 : Break 2 : EndIf
+            For ii=0 To Remaining - 1
+              *aBufferOut\a = *aBufferIn\a ! *aRegister\a
+              *aBufferIn  + 1
+              *aBufferOut + 1
+              *aRegister  + 1
+            Next
             
-            *Input + 2
-            *Output + 2
-            *wRegister + 2
+          EndIf
+  	      ;}
+  	    Case #Ascii   ;{ Ascii content
+  	      
+  	      *aBufferIn  = *Input
+  	      *aBufferOut = *Output
+  	      
+  	      Repeat
+  	        
+  	        If Not AESEncoder(@register(0), @register(0), 32, @register(0), 256, 0, #PB_Cipher_ECB)
+  	          ProcedureReturn #False
+  	        EndIf
+  	        
+  	        *aRegister = @Register(0)
+  	        
+  	        For ii=0 To 15
+  	          
+              If *aBufferIn\a And *aBufferIn\a ! *aRegister\a
+                *aBufferOut\a = *aBufferIn\a ! *aRegister\a
+              Else
+                *aBufferOut\a = *aBufferIn\a
+              EndIf
+              
+              If i > Size - 2 : Break 2 : EndIf
+              
+              *aBufferIn  + 1
+              *aBufferOut + 1
+              *aRegister  + 1
+              
+              i + 1
+            Next ii
             
-            i + 2
-          Next ii
-          
-        ForEver
-	      
-	      ;}
-	  EndSelect
-	  
-	  ProcedureReturn #True
-	EndProcedure
-	
-	
+          ForEver
+    	    ;}
+  	    Case #Unicode ;{ Unicode content
+  	      
+  	      Repeat
+  	        
+  	        If Not AESEncoder(@Register(0), @Register(0), 32, @Register(0), 256, 0, #PB_Cipher_ECB)
+  	          ProcedureReturn #False
+  	        EndIf
+  	        
+  	        *wRegister = @Register(0)
+            
+  	        For ii=0 To 15 Step 2
+  	          
+              If *Input\w And *Input\w ! *wRegister\w
+                *Output\w = *Input\w ! *wRegister\w
+              Else
+                *Output\w = *Input\w
+              EndIf
+              
+              If i > Size - 3 : Break 2 : EndIf
+              
+              *Input + 2
+              *Output + 2
+              *wRegister + 2
+              
+              i + 2
+            Next ii
+            
+          ForEver
+  	      
+  	      ;}
+  	  EndSelect
+  	  
+  	  ProcedureReturn #True
+  	EndProcedure
+  	
+  CompilerEndIf
+  
+  
   Procedure.q CompressBuffer_(*Buffer, Size.q) 
 	  Define.q Compressed
 	  Define   *Compress
@@ -513,15 +520,17 @@ Module LSB
       FreeMemory(*Compress)
     EndIf 
     
-    If LSB()\Key
+    CompilerIf #Enable_Encryption
+      If LSB()\Key
+        
+        If *Memory\Buffer  
+          Counter = GetCounter_()
+          SmartCoder(#Binary, *Memory\Buffer + 16, *Memory\Buffer + 16, *Memory\Size - 24, LSB()\Key, Counter)
+          PokeQ(*Memory\Buffer + *Memory\Size - 8, Counter)
+        EndIf
       
-      If *Memory\Buffer  
-        Counter = GetCounter_()
-        SmartCoder(#Binary, *Memory\Buffer + 16, *Memory\Buffer + 16, *Memory\Size - 24, LSB()\Key, Counter)
-        PokeQ(*Memory\Buffer + *Memory\Size - 8, Counter)
       EndIf
-    
-    EndIf
+    CompilerEndIf
     
     ProcedureReturn LSB()\Item()\Compressed
   EndProcedure  
@@ -578,12 +587,16 @@ Module LSB
               Size - 8
               *Pointer + 8
               
-              If LSB()\Key And Bit = 1
-                Counter = PeekQ(*Buffer + Size)
-                Size - 8
-                SmartCoder(#Binary, *Pointer, *Pointer, Size, LSB()\Key, Counter)
-              EndIf
-              
+              CompilerIf #Enable_Encryption
+                
+                If LSB()\Key And Bit = 1
+                  Counter = PeekQ(*Buffer + Size)
+                  Size - 8
+                  SmartCoder(#Binary, *Pointer, *Pointer, Size, LSB()\Key, Counter)
+                EndIf
+                
+              CompilerEndIf
+            
               ;{ Uncompress Memory
               If Compressed
                 
@@ -731,8 +744,10 @@ Module LSB
 	  
 	  If AddMapElement(LSB(), Str(ID))
 	    
-	    Key = KeyStretching_(Key, 1024)
-	    
+	    CompilerIf #Enable_Encryption
+  	    Key = KeyStretching_(Key, 1024)
+  	  CompilerEndIf
+	  
 	    LSB()\Image = LoadImage(#PB_Any, ImageFile)
 	    If LSB()\Image
 	      
@@ -766,8 +781,10 @@ Module LSB
 	  
 	  If AddMapElement(LSB(), Str(ID))
 	    
-	    Key = KeyStretching_(Key, 1024)
-	    
+	    CompilerIf #Enable_Encryption
+  	    Key = KeyStretching_(Key, 1024)
+  	  CompilerEndIf
+	  
 	    LSB()\Image = LoadImage(#PB_Any, ImageFile)
 	    If LSB()\Image
 	      
@@ -1280,7 +1297,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 6
+  #Example = 1
   
   ; 1: Embed files
   ; 2: Extract files
@@ -1403,10 +1420,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndSelect
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 60
-; FirstLine = 4
-; Folding = 9A5BCBABBg
-; Markers = 92,945
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 64
+; Folding = 1AxHv5DggE1
+; Markers = 95,962
 ; EnableXP
 ; DPIAware

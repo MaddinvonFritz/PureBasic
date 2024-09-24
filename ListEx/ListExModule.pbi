@@ -9,7 +9,9 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.06.2022
+; Last Update: 17.07.2022
+;
+; - ClipOutput Bugfix for MacOS removed 
 ;
 ; - Added: #CellFocus
 ;
@@ -146,8 +148,7 @@
 
 ;} -----------------------------
 
-
-;{ ___ Format Content (Mask) ___
+;{ _____ Format Content (Mask) _____
 
 ; Floats:  "0.00" or "0,000"
 ; Integer: "." or "," or "1.000" or "1,000"
@@ -1274,15 +1275,15 @@ Module ListEx
   EndProcedure  
   
   Procedure ClipOutput_(X, Y, Width, Height)
-    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+    ;CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
       ClipOutput(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height)) 
-    CompilerEndIf
+    ;CompilerEndIf
   EndProcedure
   
   Procedure UnclipOutput_()
-    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+    ;CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
       UnclipOutput() 
-    CompilerEndIf
+    ;CompilerEndIf
   EndProcedure
 
   ;- ----------------
@@ -10916,7 +10917,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
 
-  #Example = 9
+  #Example = 0
   
   ; 0: Numbering in column 0
   ; 1: Checkboxes in column 0
@@ -10957,7 +10958,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #Validation
   EndEnumeration ;}
   
-  #Functions = #Images|#Scrollbar
+  #Functions = #Images|#Scrollbar|#Fonts
   
   ; #Header      - Customise header
   ; #Column      - Customise columns
@@ -11256,8 +11257,8 @@ CompilerIf #PB_Compiler_IsMainFile
       
       If #Functions & #Scrollbar   ;{ Horizontal scrollbar
         
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Test 1", 75) 
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Test 2", 60) 
+        ListEx::AddColumn(#List, ListEx::#LastItem, "Test 1", 75, "", ListEx::#Strings) 
+        ListEx::AddColumn(#List, ListEx::#LastItem, "Test 2", 60, "", ListEx::#Strings) 
         ;}
       EndIf 
       
@@ -11416,9 +11417,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 6.00 Beta 10 (Windows - x64)
-; CursorPosition = 454
-; FirstLine = 133
-; Folding = wAAgAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAgICAAIAAAAAA-DAAiaHBAfBAAAAAAAAAAAAQAAgAACAAAAAAAgAAABAwA-
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 13
+; Folding = wCAgAAAAAAAAAAMAAAAAMAAAAAAAAAAAAAAAAAAAAIiAAACAAAAAw-AAgo3RAwXAIAAAAAAAAAAAUAAAAAAAAAAAAAIAAAEAIw
 ; EnableXP
 ; DPIAware

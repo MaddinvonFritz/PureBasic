@@ -8,9 +8,9 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 24.05.2022
+; Last Update: 03.05.2024
 ; 
-; Bugfix: Cell() if Width = #PB_Default
+; Bugfix: Unicode
 ;
 
 ;{ ===== MIT License =====
@@ -5687,7 +5687,8 @@ Module PDF
             Flags = Flags & ~#Unicode
           EndIf
           PDF()\Fonts()\Flags = Flags
-
+          
+          Debug MapSize(Font\CharWidth())
           ForEach Font\CharWidth()
             UTF = Val(MapKey(Font\CharWidth()))
             PDF()\Fonts()\CharWidth(Chr(UTF)) = Font\CharWidth()
@@ -5896,6 +5897,7 @@ Module PDF
               objOutDictionary_(objStrg)
               objStrg = ""
               For i=0 To 65535
+                If i > $D7FF And i < $E000 : Continue : EndIf
                 If FindMapElement(PDF()\Fonts()\CharWidth(), Chr(i))
                   objStrg + Str(i) + " [" + Str(PDF()\Fonts()\CharWidth(Chr(i))) + "] "
                 EndIf
@@ -7120,10 +7122,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 3079
-; FirstLine = 464
-; Folding = YCAAAoACgAQAAAQAACAAAAAQ1AIDAYgfiAQBAQCEAAAEBAABIAAAFQABAAAIOCAAyFAh3AA9
+; IDE Options = PureBasic 6.04 LTS (Windows - x64)
+; CursorPosition = 575
+; Folding = YCAAAoACwAQAAASAACAAAAAQ1AIDAcgfDAABAQCEAAAEBBABIAAAFQABAAAIOjIAyFAh3AA9
 ; Markers = 591,1026,2203,2382,2482,3328,3837,3907
 ; EnableXP
 ; DPIAware

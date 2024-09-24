@@ -7,17 +7,12 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 5.06.2022
+; Last Update: 31.07.2022
+;
+; - Bugfixes
 ;
 ; - Added: #EventType_Syntax (Spellchecking)
 ; - Bugfixes
-;
-; New Scrollbars
-; New DPI managment
-;
-; Change Cursor flashing
-; Changed timer
-; Bugfixes
 ;
 
 ;{ ===== MIT License =====
@@ -145,7 +140,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 22043000
+  #Version  = 22072000
   #ModuleEx = 22060500
   
   ;- ============================================================================
@@ -1067,6 +1062,8 @@ Module EditEx
     
     RowOffsetH = EditEx()\Visible\RowOffset * EditEx()\Text\Height
     
+    PushListPosition(EditEx()\Row())
+    
     ForEach EditEx()\Row()
       
       PosX = EditEx()\Row()\X + EditEx()\Size\PaddingX + 1
@@ -1123,6 +1120,8 @@ Module EditEx
       EndIf
       
     Next
+    
+    PopListPosition(EditEx()\Row())
     
     ProcedureReturn CursorPos
   EndProcedure
@@ -1329,7 +1328,9 @@ Module EditEx
 	  
     Offset = Round((EditEx()\HScroll\Pos - EditEx()\HScroll\minPos) * EditEx()\HScroll\Factor, #PB_Round_Nearest)
     EditEx()\HScroll\Thumb\X = EditEx()\HScroll\Area\X + Offset
-
+    
+    EditEx()\Visible\PosOffset = EditEx()\HScroll\Pos
+    
 	EndProcedure
 	
 	Procedure   SetThumbPosY_(Pos.i) ; Vertical Scrollbar
@@ -1342,7 +1343,9 @@ Module EditEx
 	  
     Offset = Round((EditEx()\VScroll\Pos - EditEx()\VScroll\minPos) * EditEx()\VScroll\Factor, #PB_Round_Nearest)
     EditEx()\VScroll\Thumb\Y = EditEx()\VScroll\Area\Y + Offset
-
+    
+    EditEx()\Visible\RowOffset = EditEx()\VScroll\Pos
+    
 	EndProcedure
 	
 	Procedure   AdjustScrollBars_()
@@ -1397,20 +1400,20 @@ Module EditEx
   Procedure   RemoveSelection_()
     ; Remove & Reset Selection 
     
-    If EditEx()\Selection\Flag = #Selected
-      
-      EditEx()\Selection\Flag = #NoSelection
-      EditEx()\Selection\Pos1 = #PB_Default
-      EditEx()\Selection\Pos2 = #PB_Default
-      EditEx()\Mouse\Status   = #False
-      
-    EndIf
+    EditEx()\Selection\Flag = #NoSelection
+    EditEx()\Selection\Pos1 = #PB_Default
+    EditEx()\Selection\Pos2 = #PB_Default
+    EditEx()\Mouse\Status   = #False
+
+    PushListPosition(EditEx()\Row())
     
     ForEach EditEx()\Row()
       EditEx()\Row()\Selection\X      = 0
       EditEx()\Row()\Selection\String = ""
       EditEx()\Row()\Selection\State  = #False
     Next
+    
+    PopListPosition(EditEx()\Row())
     
   EndProcedure
   
@@ -2527,7 +2530,12 @@ Module EditEx
   Procedure   CalcSelection_(X, Pos.i, Len.i, Pos1.i, Pos2.i)
     Define.i PosX
     Define.s Text$
-
+    
+    If Pos1 = #PB_Default Or Pos2 = #PB_Default
+      EditEx()\Row()\Selection\State = #False
+      ProcedureReturn #False
+    EndIf
+    
     If Pos2 >= Pos And Pos1 <= Pos + Len
 
       If Pos1 <= Pos
@@ -2909,8 +2917,8 @@ Module EditEx
       EndIf
       
       PageRows = Round(EditEx()\Visible\Height / EditEx()\Text\Height, #PB_Round_Down)
-      If EditEx()\Cursor\Row => PageRows
-        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row - PageRows + 1
+      If EditEx()\Cursor\Row - RowOffSet > PageRows
+        EditEx()\Visible\RowOffset = (EditEx()\Cursor\Row - PageRows) + 1
       EndIf
       
     EndIf
@@ -3363,8 +3371,8 @@ Module EditEx
       EndIf  
       
       ;{ _____ ScrollBars _____
-      EditEx()\Visible\PosOffset = EditEx()\HScroll\Pos
-      EditEx()\Visible\RowOffset = EditEx()\VScroll\Pos
+      ;EditEx()\Visible\PosOffset = EditEx()\HScroll\Pos
+      ;EditEx()\Visible\RowOffset = EditEx()\VScroll\Pos
       EditEx()\Scrollbar\StepX = TextWidth_("ABC")
       EditEx()\Scrollbar\StepY = TextHeight_("X")
       ;}
@@ -3378,6 +3386,8 @@ Module EditEx
       RowOffsetH = EditEx()\Visible\RowOffset * EditEx()\Text\Height
       
       ClipOutput_(0, 0, Width - EditEx()\Size\PaddingX, Height - EditEx()\Size\PaddingY)
+      
+      PushListPosition(EditEx()\Row())
       
       ;{ _____ Draw Text _____
       ForEach EditEx()\Row()
@@ -3414,7 +3424,9 @@ Module EditEx
         
         If PosY + EditEx()\Text\Height > EditEx()\Visible\Height : Break : EndIf
         
-      Next ;}
+      Next 
+
+      ;}
       
       ;{ _____ Cursor _____
       If EditEx()\Cursor\Pos = 0                     ;{ Empty text
@@ -3474,6 +3486,8 @@ Module EditEx
       
       DrawCursor_()
       ;}
+      
+      PopListPosition(EditEx()\Row())
 
       UnclipOutput_()
       
@@ -3485,7 +3499,7 @@ Module EditEx
       
       StopDrawing()
     EndIf
-    
+
     DrawScrollBar_(Scrollbar)
 
   EndProcedure
@@ -3500,7 +3514,7 @@ Module EditEx
     If OffSet : CalcCursorOffset() : EndIf
     
     Draw_(#Vertical|#Horizontal)
-    
+
   EndProcedure
 
   ;- =========================================================
@@ -4387,27 +4401,26 @@ Module EditEx
     Define.s ScrollBar
     
     If FindMapElement(EditEx(), Str(GNum))
-      
-      dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-			dY = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+
+      X = DesktopUnscaledX(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
+			Y = DesktopUnscaledY(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
 			
-			X = DesktopUnscaledX(dX)
-			Y = DesktopUnscaledY(dY)
+			RemoveSelection_()
       
       EditEx()\Mouse\LeftButton = #True
-
+      EditEx()\Mouse\Status     = #Mouse_Move
+			
       ;{ Horizontal Scrollbar
-		  
 		  If EditEx()\HScroll\Hide = #False
 		    
-		    If dY > dpiY(EditEx()\HScroll\Y) And dY < dpiY(EditEx()\HScroll\Y + EditEx()\HScroll\Height)
-			    If dX > dpiX(EditEx()\HScroll\X) And dX < dpiX(EditEx()\HScroll\X + EditEx()\HScroll\Width)
+		    If Y > EditEx()\HScroll\Y And Y < EditEx()\HScroll\Y + EditEx()\HScroll\Height
+			    If X > EditEx()\HScroll\X And X < EditEx()\HScroll\X + EditEx()\HScroll\Width
 		    
     			  EditEx()\HScroll\CursorPos = #PB_Default
     			  
     			  If EditEx()\HScroll\Focus
     			    
-      			  If dX > dpiX(EditEx()\HScroll\Buttons\bX) And  dX < dpiX(EditEx()\HScroll\Buttons\bX + EditEx()\HScroll\Buttons\Width)
+      			  If X > EditEx()\HScroll\Buttons\bX And  X < EditEx()\HScroll\Buttons\bX + EditEx()\HScroll\Buttons\Width
       			    
       			    ; --- Backwards Button ---
       			    If EditEx()\HScroll\Buttons\bState <> #Click
@@ -4417,7 +4430,7 @@ Module EditEx
       			      DrawScrollButton_(#Horizontal, #Backwards)
       			    EndIf
       			    
-      			  ElseIf dX > dpiX(EditEx()\HScroll\Buttons\fX) And  dX < dpiX(EditEx()\HScroll\Buttons\fX + EditEx()\HScroll\Buttons\Width)
+      			  ElseIf X > EditEx()\HScroll\Buttons\fX And  X < EditEx()\HScroll\Buttons\fX + EditEx()\HScroll\Buttons\Width
       			    
       			    ; --- Forwards Button ---
       			    If EditEx()\HScroll\Buttons\fState <> #Click
@@ -4427,7 +4440,7 @@ Module EditEx
       			      DrawScrollButton_(#Horizontal, #Forwards)
       			    EndIf
       			    
-      			  ElseIf  dX > dpiX(EditEx()\HScroll\Thumb\X) And dX < dpiX(EditEx()\HScroll\Thumb\X + EditEx()\HScroll\Thumb\Width)
+      			  ElseIf  X > EditEx()\HScroll\Thumb\X And X < EditEx()\HScroll\Thumb\X + EditEx()\HScroll\Thumb\Width
       			    
       			    ; --- Thumb Button ---
       			    If EditEx()\HScroll\Thumb\State <> #Click
@@ -4439,8 +4452,6 @@ Module EditEx
       			  EndIf
       			  
       			EndIf
-      			
-      			EditEx()\Mouse\LeftButton = #False
       			
       			ProcedureReturn #True
       		EndIf
@@ -4455,7 +4466,7 @@ Module EditEx
 			    If dY > dpiY(EditEx()\VScroll\Y) And dY < dpiY(EditEx()\VScroll\Y + EditEx()\VScroll\Height)
 		    
     			  EditEx()\VScroll\CursorPos = #PB_Default
-    			  
+
     			  If EditEx()\VScroll\Focus
     			    
     			    If dY > dpiY(EditEx()\VScroll\Buttons\bY) And dY < dpiY(EditEx()\VScroll\Buttons\bY + EditEx()\VScroll\Buttons\Height)
@@ -4490,9 +4501,7 @@ Module EditEx
     			    EndIf  
     
     			  EndIf
-    			  
-    			  EditEx()\Mouse\LeftButton = #False
-    			  
+        	  
     			  ProcedureReturn #True
     			EndIf
     		EndIf
@@ -4505,7 +4514,7 @@ Module EditEx
           EditEx()\Visible\WordList = #False
         EndIf  
       CompilerEndIf
-      
+
       ;{ Mouse Selection
       CursorPos = CursorPos_(X, Y)
       If CursorPos
@@ -4521,17 +4530,16 @@ Module EditEx
         Else  
           
           EditEx()\Selection\Pos1 = #PB_Default
-          RemoveSelection_() 
           
         EndIf  
         
         EditEx()\Cursor\LastPos = CursorPos
         EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
-
-        ReDraw_(#False)
-
+        
+        Draw_()
+        
       EndIf ;}
-    
+
       CompilerIf #Enable_UndoRedo
         ChangeUndoCursor_()
       CompilerEndIf
@@ -4585,7 +4593,9 @@ Module EditEx
       			EndIf 
       			
       			EditEx()\Mouse\LeftButton = #False
-      			EditEx()\Mouse\Status     = #Mouse_Move 
+      			EditEx()\Mouse\Status     = #Mouse_Move
+      			
+      			EditEx()\Selection\Flag   = #NoSelection
       			
       			ProcedureReturn #True
       		EndIf
@@ -4625,28 +4635,35 @@ Module EditEx
       			EndIf 
       			
       			EditEx()\Mouse\LeftButton = #False
-      			EditEx()\Mouse\Status     = #Mouse_Move 
-      			
+            EditEx()\Mouse\Status     = #Mouse_Move
+            
+            EditEx()\Selection\Flag   = #NoSelection
+            
       			ProcedureReturn #True
       		EndIf
       	EndIf
       	
   		EndIf	 ;}
-
-      If EditEx()\Mouse\Status = #Mouse_Select
-        
-        CursorPos = CursorPos_(X, Y)
-        If CursorPos
-          EditEx()\Selection\Pos2 = CursorPos
-          EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
-          ReDraw_(#False)
+  		
+  		If X <= EditEx()\Area\Width And Y <= EditEx()\Area\Height
+  		  
+        If EditEx()\Mouse\Status = #Mouse_Select
+          
+          CursorPos = CursorPos_(X, Y)
+          If CursorPos
+            EditEx()\Selection\Pos2 = CursorPos
+            EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
+            Draw_(#False)
+          EndIf
+          
+          EditEx()\Mouse\Status = #Mouse_Move
         EndIf
         
-        EditEx()\Mouse\Status = #Mouse_Move
       EndIf
-      
-      EditEx()\Mouse\LeftButton = #False
+
     EndIf
+    
+    EditEx()\Mouse\LeftButton = #False
     
   EndProcedure  
   
@@ -4726,7 +4743,7 @@ Module EditEx
 			
 			X = DesktopUnscaledX(dX)
 			Y = DesktopUnscaledY(dY)
-
+			
 			;{ Horizontal Scrollbar
 		  If EditEx()\HScroll\Hide = #False
 		  
@@ -4768,6 +4785,7 @@ Module EditEx
   			        EditEx()\HScroll\CursorPos = X
   			        
   			        If CursorPos <> EditEx()\HScroll\Pos 
+  			          EditEx()\Visible\PosOffset = EditEx()\HScroll\Pos
   			          Draw_(#Horizontal)
   			        EndIf
   			        
@@ -4780,10 +4798,7 @@ Module EditEx
     		    If Backwards <> EditEx()\HScroll\Buttons\bState : DrawScrollButton_(#Horizontal, #Backwards) : EndIf 
     		    If Forwards  <> EditEx()\HScroll\Buttons\fState : DrawScrollButton_(#Horizontal, #Forwards)  : EndIf 
     		    If Thumb     <> EditEx()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf
-    		    
-    		    EditEx()\Mouse\LeftButton = #False
-    		    EditEx()\Mouse\Status     = #Mouse_Move 
-    		    
+
     		    ProcedureReturn #True
 			    EndIf
   			EndIf
@@ -4844,6 +4859,7 @@ Module EditEx
 			        EditEx()\VScroll\CursorPos = Y
 			        
 			        If CursorPos <> EditEx()\VScroll\Pos
+                EditEx()\Visible\RowOffset = EditEx()\VScroll\Pos
 			          Draw_(#Vertical)
 			        EndIf
 			        
@@ -4856,10 +4872,7 @@ Module EditEx
 			    If Backwards <> EditEx()\VScroll\Buttons\bState : DrawScrollButton_(#Vertical, #Backwards) : EndIf 
           If Forwards  <> EditEx()\VScroll\Buttons\fState : DrawScrollButton_(#Vertical, #Forwards)  : EndIf 
           If Thumb     <> EditEx()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
-          
-          EditEx()\Mouse\Status     = #Mouse_Move 
-          EditEx()\Mouse\LeftButton = #False
-          
+
           ProcedureReturn #True
   			EndIf
   		EndIf
@@ -4883,54 +4896,66 @@ Module EditEx
       
       LastCursorPos = EditEx()\Cursor\Pos
       
-      If EditEx()\Mouse\LeftButton ;{ Left Mouse Button
+      If X <= EditEx()\Area\Width And Y <= EditEx()\Area\Height
         
-        Select EditEx()\Mouse\Status
-          Case #Mouse_Move   ;{ Start Selection
-            
-            If EditEx()\Selection\Flag = #NoSelection
+        If EditEx()\Mouse\LeftButton ;{ Left Mouse Button
+          
+          Select EditEx()\Mouse\Status
+            Case #Mouse_Move   ;{ Start Selection
               
-              CursorPos = CursorPos_(X, Y)
-              If CursorPos 
+              If EditEx()\Selection\Flag = #NoSelection
+                
+                CursorPos = CursorPos_(X, Y)
+                If CursorPos 
+          
+                  If LastCursorPos <> CursorPos
+                    
+                    EditEx()\Selection\Pos1 = LastCursorPos
+                    EditEx()\Selection\Pos2 = CursorPos
+                    EditEx()\Selection\Flag = #Selected
+                    EditEx()\Mouse\Status   = #Mouse_Select
+                    
+                    ReDraw_(#False)
 
-                If LastCursorPos <> CursorPos
-               
-                  EditEx()\Selection\Pos1 = LastCursorPos
-                  EditEx()\Selection\Pos2 = CursorPos
-                  EditEx()\Selection\Flag = #Selected
-                  EditEx()\Mouse\Status   = #Mouse_Select
+                  EndIf
                   
-                  ReDraw_(#False)
                 EndIf
                 
-              EndIf
-              
-            EndIf  
-            ;}
-          Case #Mouse_Select ;{ Continue Selection
-            
-            If EditEx()\Selection\Flag = #Selected
-              
-              CursorPos = CursorPos_(X, Y)
-              If CursorPos 
+              EndIf  
+              ;}
+            Case #Mouse_Select ;{ Continue Selection
+        
+              If EditEx()\Selection\Flag = #Selected
                 
-                If LastCursorPos <> CursorPos
-                  EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-                  ReDraw_()
+                CursorPos = CursorPos_(X, Y)
+                If CursorPos 
+                  
+                  If LastCursorPos <> CursorPos
+                    
+                    EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+                    ReDraw_()
+                    
+                  EndIf
+                  
                 EndIf
                 
-              EndIf
-              
-            EndIf  
-            ;}
-        EndSelect
-        ;}
+              EndIf  
+              ;}
+          EndSelect
+          ;}
+        Else
+          EditEx()\Mouse\Status = #Mouse_Move 
+        EndIf
+        
       Else
-        EditEx()\Mouse\Status = #Mouse_Move 
+        
+        EditEx()\Selection\Flag = #False
+        EditEx()\Mouse\Status   = #Mouse_Move
+        
       EndIf
-      
+
       ChangeMouseCursor_(GNum, X, Y)
-      
+
     EndIf  
   
   EndProcedure
@@ -6736,7 +6761,7 @@ CompilerIf #PB_Compiler_IsMainFile
           EndSelect ;}
         Case EditEx::#Event_Gadget ;{ Spellcheck
           If EventType() = EditEx::#EventType_Syntax
-            Debug "=> Syntax errors: " + Str(EventData())
+            ;Debug "=> Syntax errors: " + Str(EventData())
           EndIf  
           ;}
       EndSelect
@@ -6751,9 +6776,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = wAF3ACAIQAAGAAAAAEIAMCAAx1D6tY5FCADCAAAGAA1NUVxAMADAAAAAQAAAwBxAAo
-; Markers = 1476,2352,3493,5474
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 9
+; Folding = 5AAiACAAAAAEAAAAAMAAMAAABUD6lQ5YYAVMGbAEAAQBL-9A9GGAAAAAAAAAwDhABo
+; Markers = 1479,2355,3507,4538,5499
 ; EnableXP
 ; DPIAware

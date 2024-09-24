@@ -6,12 +6,12 @@
 ;/
 ;/ Based on the code of infratec (2020)
 ;/ 
-;/ © 2022  by Thorsten Hoeppner (05/2022)
+;/ © 2023  by Thorsten Hoeppner (05/2022)
 ;/
 
-; Last Update: 21.05.2022
+; Last Update: 21.03.2023
 ; 
-; Added: Decode QRCodes (image)
+; Bugfix: DrawImage()
 ;
 
 
@@ -23,7 +23,7 @@
 ; https://www.nayuki.io/page/qr-code-generator-library
 ; 
 ; Copyright (c) 2020 infratec (Converted To PB)
-; Copyright (c) 2022 Thorsten Hoeppner
+; Copyright (c) 2022-2023 Thorsten Hoeppner
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -4135,9 +4135,11 @@ Module QRCode
           
           Box(0, 0, dpiX(Width), dpiY(Height), QRCode()\Color\Back)
           
-          DrawingMode(#PB_2DDrawing_AlphaBlend)
-          DrawImage(ImageID(QRCode()\Image), X, Y)
-          
+          If IsImage(QRCode()\Image)
+            DrawingMode(#PB_2DDrawing_AlphaBlend)
+            DrawImage(ImageID(QRCode()\Image), X, Y)
+          EndIf
+        
           StopDrawing()
         EndIf
         
@@ -5088,7 +5090,7 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect
 
 CompilerEndIf
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 14
-; Folding = EIy-BAAAAAAAAAAAAAAAAAAAAAAAIAMQAx
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 25
+; Folding = EIy-BAAAAAAAAAAAAAAAAAAAAAAANAMQAx
 ; EnableXP

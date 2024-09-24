@@ -9,7 +9,9 @@
 ;/ © 2022 Thorsten1 Hoeppner (08/2019)
 ;/
 
-; Last Update: 20.06.2022
+; Last Update: 29.06.2022
+;
+; - Added: jDB::JSON()
 ;
 ; - Added: #Compressed for Save() & Open() 
 ; - Added: Blob
@@ -59,6 +61,7 @@
 ; jDB::AddPack()         - Save database in an archive
 ; jDB::UncompressPack()  - Load database from an archive
 ; jDB::Close()           - Close database
+; jDB::JSON()            - Returns the number of the JSON data 
 ;
 ; jDB::Create()          - Create a new database
 ; jDB::AddTable()        - Add a database table
@@ -175,7 +178,7 @@ DeclareModule jDB
   ;- ===========================================================================
   
   Declare.i AddColumn(DB.i, Label.s, Type.i) 
-  Declare.i AddDataset(DB.i, DataSet.s, ID.s=#UID, Separator.s="|")
+  Declare.s AddDataset(DB.i, DataSet.s, ID.s=#UID, Separator.s="|")
   Declare.i AddTable(DB.i, Table.s)
   
   Declare   Drop(DB.i, Table.s)
@@ -184,6 +187,14 @@ DeclareModule jDB
   Declare.i Create(DB.i, DatabaseName.s, Key.s="")
   Declare.i Open(DB.i, File.s, Key.s="", Flags.i=#False)
   Declare.i Save(DB.i, File.s="", Flags.i=#False)
+  Declare.i JSON(DB.i)
+  
+  CompilerIf Defined(SFC, #PB_Module)
+    
+    Declare.i AddSFC(DB.i, Container.i, PackedFileName.s="") 
+    Declare.i UseSFC(DB.i, Container.i, PackedFileName.s)
+    
+  CompilerEndIf  
   
   Declare   Table(DB.i, Table.s)
   Declare   SelectRow(DB.i, ID.s, Table.s="", Flags.i=#False)
@@ -203,7 +214,7 @@ DeclareModule jDB
   
   Declare   Sort(DB.i, Order.s, Table.s="", Flags.i=#False)
   
-  Declare.i UpdateDataset(DB.i, DataSet.s, Separator.s="|", Flags=#False)
+  Declare.s UpdateDataset(DB.i, DataSet.s, Separator.s="|", Flags=#False)
   
   Declare   FirstRow(DB.i)
   Declare   PreviousRow(DB.i)
@@ -318,7 +329,7 @@ Module jDB
   EndStructure ;}
   
   
-  Structure jDB_Value_Structure  ;{ DB()\Selected()\Column()\...
+  Structure jDB_Value_Structure        ;{ DB()\Selected()\Column()\...
     Value.s
     Type.i
   EndStructure ;}
@@ -1693,6 +1704,58 @@ Module jDB
     
   EndProcedure  
   
+  Procedure.i JSON(DB.i)
+    
+    If FindMapElement(jDB(), Str(DB)) And IsJSON(jDB()\JSON)
+      ProcedureReturn jDB()\JSON
+    EndIf
+    
+  EndProcedure
+  
+  
+  CompilerIf Defined(SFC, #PB_Module)
+  
+    Procedure.i AddSFC(DB.i, Container.i, PackedFileName.s="") 
+      Define.i Result
+      
+      If PackedFileName = "" : PackedFileName = jDB()\Name + ".dbj" : EndIf 
+      PackedFileName = EscapeStrg_(PackedFileName)
+      
+      If FindMapElement(jDB(), Str(DB)) And IsJSON(jDB()\JSON)
+        
+        Result = SFC::AddJSON(Container, jDB()\JSON, PackedFileName)
+        
+      EndIf  
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+    Procedure.i UseSFC(DB.i, Container.i, PackedFileName.s)
+      Define.i Result
+      
+      If FindMapElement(jDB(), Str(DB)) ;{ ERROR: DB exists
+        jDB()\Error = #ERROR_DATABASE_ALREADY_EXISTS
+        ProcedureReturn #False
+      EndIf ;}
+      
+      If DB = #PB_Any
+        DB = 1 : While FindMapElement(jDB(), Str(DB)) : DB + 1 : Wend
+      EndIf
+      
+      If AddMapElement(jDB(), Str(DB))
+        
+        jDB()\JSON = DB
+        jDB()\File = PackedFileName
+        
+        Result = SFC::UseJSON(Container, jDB()\JSON, PackedFileName)
+        
+      EndIf
+      
+      ProcedureReturn Result
+    EndProcedure 
+    
+  CompilerEndIf
+  
   
   ;- ----- Create Database -----
   
@@ -1785,7 +1848,7 @@ Module jDB
     
   EndProcedure
   
-  Procedure.i AddDataset(DB.i, DataSet.s, ID.s=#UID, Separator.s="|")
+  Procedure.s AddDataset(DB.i, DataSet.s, ID.s=#UID, Separator.s="|")        ; Returns: RowID
     ; DataSet: "ColumnContent1|ColumnContent2|ColumnContent3"
     Define.s Table
     Define.i UID, Col = 1
@@ -1840,16 +1903,16 @@ Module jDB
         
       EndIf
       
-      ProcedureReturn #True
+      ProcedureReturn ID
     Else
       jDB()\Error = #ERROR_DATABASE_NOT_EXISTS
-      ProcedureReturn #False
+      ProcedureReturn ""
     EndIf
     
   EndProcedure
   
   
-  Procedure.i UpdateDataset(DB.i, DataSet.s, Separator.s="|", Flags=#False) 
+  Procedure.s UpdateDataset(DB.i, DataSet.s, Separator.s="|", Flags=#False)  ; Returns: RowID
     ; DataSet: "ColumnContent1|ColumnContent2|ColumnContent3"
     Define.i UID, Col = 0
     Define   *DBRow, *Element
@@ -1917,10 +1980,10 @@ Module jDB
       jDB()\cRow  = #PB_Default
       jDB()\jRow  = #False
       
-      ProcedureReturn #True
+      ProcedureReturn MapKey(jDB()\Table()\Row())
     Else
       jDB()\Error = #ERROR_DATABASE_NOT_EXISTS
-      ProcedureReturn #False
+      ProcedureReturn ""
     EndIf
     
   EndProcedure
@@ -3763,8 +3826,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 6.00 Beta 10 (Windows - x64)
-; CursorPosition = 1861
-; Folding = IEAAAfgAABgAgyTAICWgAAAAAEAU2
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 1913
+; FirstLine = 273
+; Folding = IIAAA+ABACABIpCTAICWgAAAAAAAU2
 ; EnableXP
 ; DPIAware

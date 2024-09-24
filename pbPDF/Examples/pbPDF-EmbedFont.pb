@@ -8,7 +8,7 @@ Define Font$
 If PDF::Create(#PDF)
   
   PDF::AddPage(#PDF)
-  
+
   PDF::EmbedFont(#PDF, "Playball.ttf", "Playball")
   PDF::EmbedFont(#PDF, "l_10646.ttf", "LucidaSans", "", PDF::#Unicode)
   
@@ -29,6 +29,6 @@ If PDF::Create(#PDF)
 EndIf
 
 RunProgram(File$)
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 23
+; IDE Options = PureBasic 6.04 LTS (Windows - x64)
+; CursorPosition = 11
 ; DisablePurifier = 1,1,1,1
